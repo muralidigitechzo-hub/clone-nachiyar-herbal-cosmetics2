@@ -4,7 +4,7 @@
   <base href="/">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="assets/local-storage-backend.js"></script>
+  <script src="assets/local-storage-backend.js?v=7.0"></script>
   <title>Shop All Formulations | Nachiyar Herbals & Cosmetics</title>
   <!-- Nachiyar Royal Brand Favicon -->
   <link rel="icon" type="image/png" href="assets/nachiyar-logo.png">
@@ -245,18 +245,24 @@
         }
       ];
 
-      // Fetch products from live backend API or use default products
+      // Fetch products from live backend API or use direct local storage fallback
       async function loadShopProducts() {
         try {
           const res = await fetch('/api/products?_t=' + Date.now(), { cache: 'no-store' }).then(r => r.json());
-          if (res && res.success && Array.isArray(res.data)) {
+          if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
             allProducts = res.data;
           } else {
-            allProducts = [];
+            const local = JSON.parse(localStorage.getItem('nachiyar_store_products') || 'null');
+            allProducts = (Array.isArray(local) && local.length > 0) ? local : DEFAULT_PRODUCTS;
           }
         } catch (e) {
-          console.warn('API unavailable, rendering empty catalog:', e);
-          allProducts = [];
+          console.warn('API fetch failed, reading from localStorage:', e);
+          try {
+            const local = JSON.parse(localStorage.getItem('nachiyar_store_products') || 'null');
+            allProducts = (Array.isArray(local) && local.length > 0) ? local : DEFAULT_PRODUCTS;
+          } catch (err) {
+            allProducts = DEFAULT_PRODUCTS;
+          }
         }
         renderCatalog(document.querySelector('.filter-btn.active')?.dataset.cat || 'all');
       }
@@ -266,6 +272,22 @@
       // Cross-tab real-time sync when admin edits products
       window.addEventListener('storage', (e) => {
         if (e.key === 'nachiyar_products_updated' || e.key === 'nachiyar_store_products') {
+          loadShopProducts();
+        }
+      });
+
+      // BroadcastChannel for instant cross-tab live updates without manual page reload
+      try {
+        const storeChannel = new BroadcastChannel('nachiyar_store_channel');
+        storeChannel.onmessage = (event) => {
+          if (event.data && (event.data.type === 'PRODUCTS_UPDATED' || event.data.type === 'SETTINGS_UPDATED')) {
+            loadShopProducts();
+          }
+        };
+      } catch (e) {}
+
+      window.addEventListener('nachiyar_local_event', (e) => {
+        if (e.detail && e.detail.type === 'PRODUCTS_UPDATED') {
           loadShopProducts();
         }
       });
@@ -312,7 +334,9 @@
 
       function renderCatalog(filter) {
         catalogGrid.innerHTML = '';
-        const list = allProducts.filter(p => matchesCategory(p, filter));
+        const list = allProducts
+          .filter(p => p.status !== 'inactive')
+          .filter(p => matchesCategory(p, filter));
 
         if (list.length === 0) {
           catalogGrid.innerHTML = `
@@ -336,7 +360,7 @@
           const cleanTagline = rawTagline.replace(/\s*•\s*pH\s*5\.5/gi, '');
 
           // Split metricBadge into number & unit if it contains spaces (e.g. "pH 5.5 BALANCED" or "100% PURE" or "15% OFF")
-          const rawBadge = (p.metricBadge || 'PURE').trim();
+          const rawBadge = (p.metricBadge || '100% PURE').trim();
           let badgeNum = rawBadge;
           let badgeUnit = '';
           if (rawBadge.includes(' ')) {
@@ -347,6 +371,9 @@
 
           const pImg = (p.images && p.images[0]) || 'assets/herbal-hair-oil.jpg';
           const pDesc = p.shortDescription || (p.description ? p.description.slice(0, 140) + '...' : 'Traditional botanical formulation handcrafted with earth-born Ayurvedic ingredients.');
+          const pPrice = Number(p.price) || 0;
+          const pMrp = Number(p.mrp) > pPrice ? Number(p.mrp) : Math.round(pPrice * 1.2);
+          const pSlug = p.slug || p.id;
 
           card.innerHTML = `
             <div class="card-inner">
@@ -359,24 +386,24 @@
               </div>
               <div class="card-image-wrap">
                 <img src="${pImg}" alt="${p.name}" class="card-product-img">
-                <a href="/product/?slug=${p.slug}" class="quick-view-badge">View Formulation ↗</a>
+                <a href="/product/?slug=${encodeURIComponent(pSlug)}" class="quick-view-badge">View Formulation ↗</a>
               </div>
               <div class="card-details">
                 <div class="card-meta-row">
-                  <span class="product-category">${p.category}</span>
+                  <span class="product-category">${p.category || 'Ayurvedic Care'}</span>
                   <div class="rating-stars">★★★★★ <span class="rating-score">4.9</span></div>
                 </div>
-                <a href="/product/?slug=${p.slug}" style="text-decoration:none; color:inherit;">
+                <a href="/product/?slug=${encodeURIComponent(pSlug)}" style="text-decoration:none; color:inherit;">
                   <h3 class="product-card-title">${p.name}</h3>
                 </a>
                 <p class="product-card-subtitle">${p.subtitle || ''}</p>
                 <p class="product-card-desc">${pDesc}</p>
                 <div class="card-action-bar">
                   <div class="card-pricing">
-                    <span class="price-current">₹${p.price}</span>
-                    <span class="price-mrp">₹${p.mrp}</span>
+                    <span class="price-current">₹${pPrice}</span>
+                    <span class="price-mrp">₹${pMrp}</span>
                   </div>
-                  <button class="btn-quick-add btn-catalog-add" data-id="${p.id}" data-name="${p.name}" data-price="${p.price}" data-img="${pImg}" data-size="${p.subtitle || 'Standard Edition'}">
+                  <button class="btn-quick-add btn-catalog-add" data-id="${p.id}" data-name="${p.name}" data-price="${pPrice}" data-img="${pImg}" data-size="${p.subtitle || 'Standard Edition'}">
                     <span>Add To Bag</span>
                     <span>+</span>
                   </button>

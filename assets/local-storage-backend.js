@@ -2066,6 +2066,31 @@
       localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val));
     } catch (e) {
       console.warn('LocalStorage write warning for ' + key, e);
+      try {
+        // QuotaExceeded recovery: purge bulky logs
+        localStorage.removeItem('nachiyar_inventory_logs');
+        localStorage.removeItem('nachiyar_cancellations');
+        // If writing products, sanitize oversized base64 images (>80KB)
+        if (key === KEYS.PRODUCTS && Array.isArray(val)) {
+          const sanitized = val.map(p => {
+            const copy = { ...p };
+            if (Array.isArray(copy.images)) {
+              copy.images = copy.images.map(img => {
+                if (typeof img === 'string' && img.startsWith('data:image/') && img.length > 80000) {
+                  return 'assets/herbal-hair-oil.jpg';
+                }
+                return img;
+              });
+            }
+            return copy;
+          });
+          localStorage.setItem(key, JSON.stringify(sanitized));
+          return;
+        }
+        localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val));
+      } catch (err2) {
+        console.error('Critical: LocalStorage write failed after quota cleanup', err2);
+      }
     }
   }
 
@@ -2086,7 +2111,34 @@
 
   // --- BOOTSTRAP INITIAL DATA IF EMPTY ---
   function initStorage() {
-    if (!localStorage.getItem(KEYS.PRODUCTS)) {
+    try {
+      const existingProds = localStorage.getItem(KEYS.PRODUCTS);
+      if (!existingProds) {
+        write(KEYS.PRODUCTS, SEED_PRODUCTS);
+      } else {
+        const parsedProds = JSON.parse(existingProds);
+        if (!Array.isArray(parsedProds) || parsedProds.length === 0) {
+          write(KEYS.PRODUCTS, SEED_PRODUCTS);
+        } else {
+          // Auto-repair any oversized legacy base64 images
+          let mutated = false;
+          const cleanedProds = parsedProds.map(p => {
+            if (Array.isArray(p.images)) {
+              const newImgs = p.images.map(img => {
+                if (typeof img === 'string' && img.startsWith('data:image/') && img.length > 120000) {
+                  mutated = true;
+                  return 'assets/herbal-hair-oil.jpg';
+                }
+                return img;
+              });
+              return { ...p, images: newImgs };
+            }
+            return p;
+          });
+          if (mutated) write(KEYS.PRODUCTS, cleanedProds);
+        }
+      }
+    } catch (e) {
       write(KEYS.PRODUCTS, SEED_PRODUCTS);
     }
     if (!localStorage.getItem(KEYS.ORDERS)) {
@@ -3214,6 +3266,15 @@
 
     // 12. UPLOADS (Convert to Base64 Data URL)
     if (pathname === '/api/upload') {
+      if (body && typeof body.image === 'string' && body.image.trim()) {
+        const imgUrl = body.image.trim();
+        return jsonResponse({
+          success: true,
+          url: imgUrl,
+          filePath: imgUrl,
+          message: 'Image stored successfully in LocalStorage'
+        });
+      }
       if (body instanceof FormData) {
         const file = body.get('file') || body.get('image');
         if (file && file instanceof Blob) {

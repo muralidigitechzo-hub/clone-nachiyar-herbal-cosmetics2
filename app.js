@@ -694,6 +694,63 @@ async function initStorefrontApp() {
       }).join('');
     });
 
+    // 5.8. Dynamically append extra products to #dynamicProductsGrid beyond flagship 1 & 2
+    if (dynamicGrid) {
+      dynamicGrid.querySelectorAll('.product-card--dynamic-extra').forEach(el => el.remove());
+      const extraProds = availableProds.filter(p => p.id !== slot1TargetId && p.id !== slot2TargetId && p.id !== comboTargetId);
+      extraProds.forEach(p => {
+        const pPrice = Number(p.price) || 0;
+        const pMrp = Number(p.mrp) > pPrice ? Number(p.mrp) : Math.round(pPrice * 1.2);
+        const pImg = (p.images && p.images[0]) || 'assets/new-oil-bottle-card.jpg';
+        const pSlug = p.slug || p.id;
+        const pTagline = p.tagline || '100% Pure Botanical';
+        const pBadge = p.metricBadge || '100% PURE';
+        const pDesc = p.shortDescription || (p.description ? p.description.slice(0, 140) + '...' : '');
+
+        const card = document.createElement('article');
+        card.className = 'product-card product-card--dynamic-extra';
+        card.style.setProperty('--card-bg', p.themeColor || '#6B4E9B');
+        card.style.setProperty('--card-color', '#FAF8FD');
+        card.style.backgroundColor = p.themeColor || '#6B4E9B';
+        card.style.color = '#FAF8FD';
+
+        card.innerHTML = `
+          <div class="card-inner">
+            <div class="card-top-bar">
+              <span class="pill-tag">${pTagline}</span>
+              <div class="circle-badge" title="${pBadge}">
+                <span class="badge-number">${pBadge}</span>
+              </div>
+            </div>
+            <div class="card-image-wrap">
+              <img src="${pImg}" alt="${p.name}" class="card-product-img" loading="lazy">
+              <a href="/product/?slug=${encodeURIComponent(pSlug)}" class="quick-view-badge">View Formulation ↗</a>
+            </div>
+            <div class="card-details">
+              <div class="card-meta-row">
+                <span class="product-category">${p.category || 'Ayurvedic Care'}</span>
+                <div class="rating-stars">★★★★★ <span class="rating-score">4.9</span></div>
+              </div>
+              <h3 class="product-card-title">${p.name}</h3>
+              <p class="product-card-subtitle">${p.subtitle || ''}</p>
+              ${pDesc ? `<p class="product-card-desc">${pDesc}</p>` : ''}
+              <div class="card-action-bar">
+                <div class="card-pricing">
+                  <span class="price-current">₹${pPrice}</span>
+                  <span class="price-mrp">₹${pMrp}</span>
+                </div>
+                <button class="btn-quick-add" data-id="${p.id}" data-name="${p.name}" data-price="${pPrice}" data-img="${pImg}">
+                  <span>Add To Bag</span>
+                  <span>+</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+        dynamicGrid.appendChild(card);
+      });
+    }
+
     // 6. Refresh any items already in the user's cart with updated prices
     if (Array.isArray(cart) && cart.length > 0) {
       let cartChanged = false;

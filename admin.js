@@ -1922,7 +1922,50 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Direct File Upload Listener (Converts to Base64 and uploads to server /uploads/)
+  // Helper: Compress an image (File, Blob, or base64 Data URL) using HTML5 Canvas
+  function compressImage(source, maxWidth = 600, maxHeight = 600, quality = 0.75) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.naturalWidth || img.width;
+        let height = img.naturalHeight || img.height;
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.onerror = () => {
+        resolve(typeof source === 'string' ? source : 'assets/herbal-hair-oil.jpg');
+      };
+
+      if (typeof source === 'string') {
+        img.src = source;
+      } else if (source instanceof Blob || source instanceof File) {
+        const reader = new FileReader();
+        reader.onload = (e) => { img.src = e.target.result; };
+        reader.onerror = () => resolve('assets/herbal-hair-oil.jpg');
+        reader.readAsDataURL(source);
+      } else {
+        resolve('assets/herbal-hair-oil.jpg');
+      }
+    });
+  }
+
+  // Direct File Upload Listener (Auto-optimizes via Canvas and uploads)
   if (formProdImageFile) {
     formProdImageFile.addEventListener('change', async (e) => {
       const file = e.target.files[0];
@@ -1935,43 +1978,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (imageUploadStatus) {
         imageUploadStatus.style.display = 'block';
-        imageUploadStatus.textContent = '⏳ Uploading image to server...';
+        imageUploadStatus.textContent = '⏳ Optimizing & saving photo...';
+        imageUploadStatus.style.color = '#6B4E9B';
       }
 
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64Data = reader.result;
-        try {
-          const res = await authFetch('/api/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: base64Data, filename: file.name })
-          }).then(r => r.json());
+      try {
+        const optimizedDataUrl = await compressImage(file, 600, 600, 0.75);
+        const res = await authFetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: optimizedDataUrl, filename: file.name })
+        }).then(r => r.json());
 
-          if (res.success && res.url) {
-            formProdImageInput.value = res.url;
-            if (formProdImagePreview) formProdImagePreview.src = res.url;
-            if (imageUploadStatus) {
-              imageUploadStatus.textContent = '✓ Image uploaded successfully!';
-              imageUploadStatus.style.color = '#10B981';
-            }
-            showToast('Image uploaded successfully.');
-          } else {
-            if (imageUploadStatus) {
-              imageUploadStatus.textContent = `❌ Upload failed: ${res.message || 'Error'}`;
-              imageUploadStatus.style.color = '#DC2626';
-            }
-            alert(`Image upload failed: ${res.message || 'Error'}`);
-          }
-        } catch (err) {
-          console.error('Upload failed:', err);
+        if (res.success && res.url) {
+          formProdImageInput.value = res.url;
+          if (formProdImagePreview) formProdImagePreview.src = res.url;
           if (imageUploadStatus) {
-            imageUploadStatus.textContent = '❌ Upload failed due to network error.';
+            imageUploadStatus.textContent = '✓ Photo optimized & saved successfully!';
+            imageUploadStatus.style.color = '#10B981';
+          }
+          showToast('Product photo uploaded successfully.');
+        } else {
+          if (imageUploadStatus) {
+            imageUploadStatus.textContent = `❌ Upload failed: ${res.message || 'Error'}`;
             imageUploadStatus.style.color = '#DC2626';
           }
+          alert(`Image upload failed: ${res.message || 'Error'}`);
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('Upload failed:', err);
+        if (imageUploadStatus) {
+          imageUploadStatus.textContent = '❌ Upload failed due to error.';
+          imageUploadStatus.style.color = '#DC2626';
+        }
+      }
     });
   }
 
@@ -2045,9 +2085,20 @@ document.addEventListener('DOMContentLoaded', () => {
   productForm.onsubmit = async (e) => {
     e.preventDefault();
     const id = document.getElementById('formProductId').value;
-    const imgVal = document.getElementById('formProdImage').value.trim() || 'assets/herbal-hair-oil.jpg';
-    const newPrice = Number(document.getElementById('formProdPrice').value);
-    const newMrp = Number(document.getElementById('formProdMrp').value);
+    let imgVal = document.getElementById('formProdImage').value.trim() || 'assets/herbal-hair-oil.jpg';
+
+    // Auto-compress data URL if uncompressed
+    if (imgVal.startsWith('data:image/') && imgVal.length > 60000) {
+      try {
+        imgVal = await compressImage(imgVal, 600, 600, 0.75);
+      } catch (err) {}
+    }
+
+    const newPrice = Number(document.getElementById('formProdPrice').value) || 0;
+    let newMrp = Number(document.getElementById('formProdMrp').value);
+    if (!newMrp || newMrp <= newPrice) {
+      newMrp = Math.round(newPrice * 1.2) || (newPrice + 100);
+    }
 
     // Sync variants if this product has existing variants
     let variantsToSave = null;
