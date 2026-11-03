@@ -1,32 +1,20 @@
 /**
  * Nachiyar Herbals & Cosmetics
- * Root Application Entrypoint
+ * Root Application Entrypoint (Database-Free / LocalStorage Architecture)
  */
 
 const config = require('./server/src/config/environment');
 const app = require('./server/src/app');
-const { pool } = require('./server/src/config/db');
 const storageService = require('./server/src/services/storage');
 
 const PORT = config.port;
 
-// Test DB connection before listening
-if (pool && typeof pool.query === 'function') {
-  pool.query('SELECT NOW()', (err, res) => {
-    if (err) {
-      console.error(`❌ [${config.env.toUpperCase()}] PostgreSQL connection failed:`, err.message);
-    } else {
-      console.log(`✅ [${config.env.toUpperCase()}] PostgreSQL connected successfully at:`, res.rows[0].now);
-    }
-  });
-}
-
 const server = app.listen(PORT, () => {
   console.log(`==================================================================`);
   console.log(`🌿 NACHIYAR HERBALS & COSMETICS`);
-  console.log(`🚀 Modern Stack: Express.js + Node.js + PostgreSQL`);
+  console.log(`🚀 Modern Stack: Express.js + Static Engine + 100% LocalStorage`);
   console.log(`🌍 Environment:   ${config.env.toUpperCase()}`);
-  console.log(`🗄️ Database:      ${config.database.host || 'PostgreSQL Connection'} (SSL: ${Boolean(config.database.ssl)})`);
+  console.log(`🗄️ Database:      NONE (100% Client-Side LocalStorage Storage Active)`);
   console.log(`📁 File Storage:  ${storageService.getStorageType().toUpperCase()} (${storageService.getStorageDirectory()})`);
   console.log(`🛍️ Storefront:    http://localhost:${PORT}`);
   console.log(`💼 Nimda Console: http://localhost:${PORT}/nimda/`);

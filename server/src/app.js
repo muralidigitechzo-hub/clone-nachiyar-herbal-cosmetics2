@@ -85,22 +85,9 @@ app.get(['/nimda', '/nimda/*', '/nimda/'], (req, res, next) => {
   if (path.extname(req.path)) {
     return next();
   }
-
-  const token = (req.cookies && req.cookies.nachiyar_nimda_token) ||
-                (req.cookies && req.cookies.nachiyar_admin_token) || 
-                (req.headers['authorization'] && req.headers['authorization'].replace('Bearer ', '')) || 
-                req.headers['x-admin-token'] || 
-                req.query.token;
-
-  const user = verifyToken(token);
-  if (user) {
-    const nimdaPath = path.join(projectRoot, 'nimda.html');
-    res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-    return res.sendFile(nimdaPath);
-  }
-
-  // Unauthorized visitor: redirect to direct Nimda staff login portal
-  return res.redirect('/nimda-login/');
+  const nimdaPath = path.join(projectRoot, 'nimda.html');
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  return res.sendFile(nimdaPath);
 });
 
 // Serve Nimda staff login page
@@ -196,45 +183,9 @@ app.get('/robots.txt', (req, res) => {
   res.sendFile(path.join(projectRoot, 'robots.txt'));
 });
 
-app.get('/sitemap.xml', async (req, res) => {
+app.get('/sitemap.xml', (req, res) => {
   res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-  try {
-    const { query } = require('./config/db');
-    const prodsResult = await query("SELECT slug, updated_at FROM products WHERE status = 'active' ORDER BY id ASC");
-    const activeProducts = prodsResult.rows || [];
-    const today = new Date().toISOString().split('T')[0];
-
-    const pages = getUserFacingPages();
-
-    const priorityMap = {
-      shop: '0.9',
-      about: '0.8',
-      contact: '0.8',
-      account: '0.7',
-      'order-status': '0.7',
-      checkout: '0.6',
-      sitemap: '0.6',
-      privacy: '0.5',
-      terms: '0.5',
-      'shipping-policy': '0.5'
-    };
-
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <!-- Homepage -->
-  <url><loc>https://nachiyarherbals.com/</loc><lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>
-
-  <!-- Auto-Discovered User Storefront Pages (Always in Sync) -->
-${pages.map(p => `  <url><loc>https://nachiyarherbals.com/${p.slug}/</loc><lastmod>${p.lastmod || today}</lastmod><changefreq>${priorityMap[p.slug] >= '0.8' ? 'daily' : 'weekly'}</changefreq><priority>${priorityMap[p.slug] || '0.7'}</priority></url>`).join('\n')}
-
-  <!-- Botanical Formulations & Active Database Products (Always in Sync) -->
-${activeProducts.map(p => `  <url><loc>https://nachiyarherbals.com/product/?slug=${p.slug}</loc><lastmod>${p.updated_at ? new Date(p.updated_at).toISOString().split('T')[0] : today}</lastmod><changefreq>weekly</changefreq><priority>0.85</priority></url>`).join('\n')}
-</urlset>`;
-
-    return res.send(xml);
-  } catch (err) {
-    return res.sendFile(path.join(projectRoot, 'sitemap.xml'));
-  }
+  return res.sendFile(path.join(projectRoot, 'sitemap.xml'));
 });
 
 // Health check with environment diagnostics

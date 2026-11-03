@@ -1,25 +1,17 @@
 {
   "name": "nachiyar-herbals",
   "version": "2.0.0",
-  "description": "Nachiyar Herbals & Cosmetics - Full-Stack Modern Platform (Next.js, Node.js + Express.js, PostgreSQL)",
+  "description": "Nachiyar Herbals & Cosmetics - 100% Client-Side LocalStorage Architecture",
   "main": "server.js",
   "scripts": {
-    "start": "node --disable-wasm-trap-handler server/src/index.js",
-    "dev": "node --disable-wasm-trap-handler server/src/index.js",
-    "start:prod": "node --disable-wasm-trap-handler -e \"process.env.NODE_ENV='production'; require('./server/src/index.js')\"",
-    "server": "node --disable-wasm-trap-handler server/src/index.js",
-    "client": "npm run dev --prefix client",
-    "db:migrate": "node --disable-wasm-trap-handler server/src/db/migrate.js",
-    "reviews": "node view-reviews.js",
-    "test:env": "node test-environments.js"
+    "build": "echo 'Static build complete'",
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "google-auth-library": "^11.3.1",
-    "morgan": "^1.10.0",
-    "nodemailer": "^10.2.0",
-    "pg": "^8.12.0"
+    "morgan": "^1.10.0"
   }
 }

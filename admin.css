@@ -163,8 +163,11 @@ body.admin-body {
 .admin-logo {
   width: 42px;
   height: 42px;
-  border-radius: 50%;
+  border-radius: 8px;
   border: 1px solid var(--admin-gold);
+  background: #ffffff;
+  object-fit: contain;
+  padding: 2px;
 }
 
 .brand-info {
