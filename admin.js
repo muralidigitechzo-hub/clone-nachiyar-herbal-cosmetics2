@@ -5348,11 +5348,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const parsed = JSON.parse(raw);
-      // Filter out deleted accounts and any legacy non-admin roles (inventory, billing)
-      return parsed
+      // Keep only admin and user-added accounts, purge legacy default accounts (nimda, murali, bharathi, etc.)
+      const filtered = parsed
         .filter(acc => !deletedList.includes(acc.username.toLowerCase()))
-        .filter(acc => acc.username.toLowerCase() !== 'inventory' && acc.username.toLowerCase() !== 'billing')
+        .filter(acc => {
+          const u = (acc.username || '').toLowerCase();
+          return u !== 'inventory' && u !== 'billing' && u !== 'nimda' && u !== 'murali' && u !== 'bharathi_07' && u !== 'nimda0987';
+        })
         .map(acc => ({ ...acc, role: 'super_admin' }));
+
+      if (!filtered.some(a => (a.username || '').toLowerCase() === 'admin')) {
+        filtered.unshift(defaultAdminAccounts[0]);
+      }
+      localStorage.setItem('nachiyar_admin_accounts', JSON.stringify(filtered));
+      return filtered;
     } catch (e) {
       return defaultAdminAccounts;
     }
@@ -5768,7 +5777,8 @@ document.addEventListener('DOMContentLoaded', () => {
           // 2. Add any accounts from DB not present locally
           data.users.forEach(dbUser => {
             const cleanU = (dbUser.username || '').toLowerCase();
-            if (cleanU && !deletedList.includes(cleanU) && cleanU !== 'inventory' && cleanU !== 'billing' && !staffAccounts.some(a => a.username.toLowerCase() === cleanU)) {
+            const isLegacy = cleanU === 'inventory' || cleanU === 'billing' || cleanU === 'nimda' || cleanU === 'murali' || cleanU === 'bharathi_07' || cleanU === 'nimda0987';
+            if (cleanU && !deletedList.includes(cleanU) && !isLegacy && !staffAccounts.some(a => a.username.toLowerCase() === cleanU)) {
               staffAccounts.push({
                 id: dbUser.id,
                 name: dbUser.name || dbUser.username,

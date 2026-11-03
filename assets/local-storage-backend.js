@@ -1612,42 +1612,6 @@
     "email": "admin@nachiyarherbals.com",
     "password": "admin123",
     "phone": "9876543210"
-  },
-  {
-    "id": "user_nimda",
-    "username": "nimda",
-    "name": "Super Nimda",
-    "role": "super_admin",
-    "permissions": [
-      "all"
-    ],
-    "email": "nimda@nachiyarherbals.com",
-    "password": "admin123",
-    "phone": "9876543210"
-  },
-  {
-    "id": "user_admin_murali",
-    "username": "murali",
-    "name": "Murali",
-    "role": "super_admin",
-    "permissions": [
-      "all"
-    ],
-    "email": "murali@nachiyarherbals.com",
-    "password": "Murali123",
-    "phone": null
-  },
-  {
-    "id": "user_admin_bharathi",
-    "username": "bharathi_07",
-    "name": "Bharathi",
-    "role": "super_admin",
-    "permissions": [
-      "all"
-    ],
-    "email": "bharathi@gmail.com",
-    "password": "1234567890",
-    "phone": null
   }
 ];
   const SEED_SETTINGS = {
@@ -2140,9 +2104,40 @@
     if (!localStorage.getItem(KEYS.CUSTOMERS)) {
       write(KEYS.CUSTOMERS, SEED_CUSTOMERS);
     }
-    if (!localStorage.getItem(KEYS.ADMINS)) {
-      write(KEYS.ADMINS, SEED_ADMINS);
+    // Auto-clean admins: keep only admin (id: admin, pass: admin123) and purge legacy accounts
+    const existingAdmins = read(KEYS.ADMINS, SEED_ADMINS);
+    const cleanedAdmins = existingAdmins.filter(a => {
+      const u = (a.username || '').toLowerCase();
+      return u !== 'nimda' && u !== 'murali' && u !== 'bharathi_07' && u !== 'nimda0987' && u !== 'inventory' && u !== 'billing';
+    });
+    if (!cleanedAdmins.some(a => (a.username || '').toLowerCase() === 'admin')) {
+      cleanedAdmins.unshift(SEED_ADMINS[0]);
     }
+    write(KEYS.ADMINS, cleanedAdmins);
+
+    try {
+      const rawLocal = localStorage.getItem('nachiyar_admin_accounts');
+      if (rawLocal) {
+        const parsedLocal = JSON.parse(rawLocal);
+        const cleanedLocal = parsedLocal.filter(a => {
+          const u = (a.username || '').toLowerCase();
+          return u !== 'nimda' && u !== 'murali' && u !== 'bharathi_07' && u !== 'nimda0987' && u !== 'inventory' && u !== 'billing';
+        });
+        if (!cleanedLocal.some(a => (a.username || '').toLowerCase() === 'admin')) {
+          cleanedLocal.unshift({
+            id: 'admin_master',
+            name: 'Super Nimda',
+            username: 'admin',
+            phone: '9876543210',
+            email: 'admin@nachiyarherbals.com',
+            role: 'super_admin',
+            password: 'admin123',
+            createdAt: '2026-10-15'
+          });
+        }
+        localStorage.setItem('nachiyar_admin_accounts', JSON.stringify(cleanedLocal));
+      }
+    } catch (e) {}
     if (!localStorage.getItem(KEYS.SETTINGS)) {
       write(KEYS.SETTINGS, SEED_SETTINGS);
     }
@@ -3150,18 +3145,18 @@
         (a.email && a.email.toLowerCase() === idLower)
       );
 
-      // Default master credentials
-      if (!matched && (idLower === 'nimda' || idLower === 'admin') && (password === 'admin123' || password === '1234567890')) {
+      // Master admin credentials: id: admin, password: admin123
+      if (!matched && idLower === 'admin' && password === 'admin123') {
         matched = {
-          id: 'user_nimda',
-          username: idLower,
-          name: 'Super Nimda',
+          id: 'user_admin_01',
+          username: 'admin',
+          name: 'Administrator',
           role: 'super_admin',
           permissions: ['all']
         };
       }
 
-      if (matched && (matched.password === password || password === 'admin123' || password === '1234567890')) {
+      if (matched && (matched.password === password || (idLower === 'admin' && password === 'admin123'))) {
         const token = 'staff_token_' + Date.now();
         write(KEYS.ADMIN_TOKEN, token);
         write(KEYS.ADMIN_USER, matched);
@@ -3181,7 +3176,12 @@
       return jsonResponse({ success: true, message: 'Signed out' });
     }
 
-    if (pathname.startsWith('/api/auth/users')) {
+    if (pathname === '/api/auth/users' || pathname === '/api/auth/users/') {
+      const admins = read(KEYS.ADMINS, SEED_ADMINS);
+      return jsonResponse({ success: true, users: admins });
+    }
+
+    if (pathname.startsWith('/api/auth/users/')) {
       const uId = pathname.replace('/api/auth/users/', '').split('?')[0];
       const admins = read(KEYS.ADMINS, SEED_ADMINS);
       const filtered = admins.filter(a => a.id !== uId && (a.username || '').toLowerCase() !== uId.toLowerCase());
