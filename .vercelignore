@@ -1,6 +1,4 @@
 server/
 server.js
-package.json
-package-lock.json
 build-local-backend.js
 test-local-backend.js
