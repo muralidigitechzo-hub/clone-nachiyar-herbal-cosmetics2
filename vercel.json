@@ -1,5 +1,7 @@
 {
+  "outputDirectory": ".",
   "cleanUrls": true,
+  "trailingSlash": false,
   "rewrites": [
     { "source": "/admin-login/:path*", "destination": "/nimda-login.html" },
     { "source": "/admin-login", "destination": "/nimda-login.html" },
