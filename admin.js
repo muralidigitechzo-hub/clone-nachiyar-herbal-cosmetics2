@@ -5213,18 +5213,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Save active tab so browser refresh stays on the exact same page
     localStorage.setItem('nachiyar_admin_active_tab', tabId);
 
-    // Clean URL: /nimda/dashboard, /nimda/products, etc. (Without trailing slash to prevent 308 redirect loops on Vercel)
+    // Hash-safe navigation: /nimda#dashboard, /nimda#reviews, etc. (Prevents 404 upon browser refresh)
     const basePath = window.location.pathname.startsWith('/admin') ? '/admin' : '/nimda';
-    const targetUrl = tabId === 'dashboard' ? basePath : `${basePath}/${tabId}`;
+    const targetUrl = tabId === 'dashboard' ? basePath : `${basePath}#${tabId}`;
     if (updateHistory) {
-      if (window.location.hash) {
+      if (push) {
+        window.history.pushState({ tab: tabId }, '', targetUrl);
+      } else {
         window.history.replaceState({ tab: tabId }, '', targetUrl);
-      } else if (window.location.pathname !== targetUrl) {
-        if (push) {
-          window.history.pushState({ tab: tabId }, '', targetUrl);
-        } else {
-          window.history.replaceState({ tab: tabId }, '', targetUrl);
-        }
       }
     }
 
