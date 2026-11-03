@@ -381,14 +381,30 @@ const template = `/**
     if (!localStorage.getItem(KEYS.ADMINS)) {
       write(KEYS.ADMINS, SEED_ADMINS);
     }
-    if (!localStorage.getItem(KEYS.SETTINGS)) {
-      write(KEYS.SETTINGS, SEED_SETTINGS);
-    }
+    try {
+      let currentSettings = read(KEYS.SETTINGS, null);
+      if (!currentSettings) {
+        currentSettings = { ...SEED_SETTINGS };
+        write(KEYS.SETTINGS, currentSettings);
+      }
+      if (currentSettings && currentSettings.homeShowcase) {
+        const hs = currentSettings.homeShowcase;
+        if (hs.slot1 && hs.slot2 && hs.slot1.productId === hs.slot2.productId) {
+          hs.slot2 = { productId: 'prod_shampoo_02', title: 'Hibiscus Flower Shampoo', price: 349, mrp: 649, customImage: 'assets/new-shampoo-bottle-card.jpg' };
+          write(KEYS.SETTINGS, currentSettings);
+          write(KEYS.HOME_SHOWCASE, hs);
+        }
+      }
+    } catch (e) {}
     if (!localStorage.getItem(KEYS.INV_LOGS)) {
       write(KEYS.INV_LOGS, SEED_INV_LOGS);
     }
-    if (!localStorage.getItem(KEYS.HOME_SHOWCASE) && SEED_SETTINGS.homeShowcase) {
-      write(KEYS.HOME_SHOWCASE, SEED_SETTINGS.homeShowcase);
+    if (!localStorage.getItem(KEYS.HOME_SHOWCASE)) {
+      write(KEYS.HOME_SHOWCASE, {
+        slot1: { productId: 'prod_oil_01', title: 'Herbal Hair Oil', price: 299, mrp: 699, customImage: 'assets/new-oil-bottle-card.jpg' },
+        slot2: { productId: 'prod_shampoo_02', title: 'Hibiscus Flower Shampoo', price: 349, mrp: 649, customImage: 'assets/new-shampoo-bottle-card.jpg' },
+        combo: { productId: 'prod_duo_03', title: 'The Royal Hair Ritual (Duo Set)', price: 599, mrp: 1148, customImage: 'assets/duo-ritual-new.jpg' }
+      });
     }
   }
 
@@ -1118,15 +1134,26 @@ const template = `/**
           current[body.slot].removed = true;
         }
       } else if (body.slot && body.productId) {
-        current[body.slot] = {
-          ...(current[body.slot] || {}),
+        const targetSlot = body.slot;
+        const otherSlot = targetSlot === 'slot1' ? 'slot2' : (targetSlot === 'slot2' ? 'slot1' : null);
+
+        if (otherSlot && current[otherSlot] && current[otherSlot].productId === body.productId) {
+          const oldTarget = current[targetSlot] || { productId: 'prod_oil_01', title: 'Herbal Hair Oil', price: 299, mrp: 699 };
+          current[otherSlot] = {
+            ...oldTarget,
+            removed: false
+          };
+        }
+
+        current[targetSlot] = {
+          ...(current[targetSlot] || {}),
           productId: body.productId,
-          title: body.title || current[body.slot]?.title || '',
-          subtitle: body.subtitle || current[body.slot]?.subtitle || '',
-          price: body.price !== undefined ? Number(body.price) : current[body.slot]?.price,
-          mrp: body.mrp !== undefined ? Number(body.mrp) : current[body.slot]?.mrp,
-          customImage: body.customImage || current[body.slot]?.customImage,
-          tag: body.tag || current[body.slot]?.tag || '',
+          title: body.title || current[targetSlot]?.title || '',
+          subtitle: body.subtitle || current[targetSlot]?.subtitle || '',
+          price: body.price !== undefined ? Number(body.price) : current[targetSlot]?.price,
+          mrp: body.mrp !== undefined ? Number(body.mrp) : current[targetSlot]?.mrp,
+          customImage: body.customImage || current[targetSlot]?.customImage,
+          tag: body.tag || current[targetSlot]?.tag || '',
           removed: false
         };
       }

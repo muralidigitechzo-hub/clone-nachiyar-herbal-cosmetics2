@@ -229,17 +229,19 @@ async function initStorefrontApp() {
       productsList = [];
     }
 
-    // Load showcase configuration from argument, window, or localStorage cache
+    // Load showcase configuration: prioritize argument, then fresh localStorage, then window cache
     let showcase = customShowcase;
+    if (!showcase) {
+      try {
+        const localHs = JSON.parse(localStorage.getItem('nachiyar_home_showcase') || 'null');
+        if (localHs && localHs.slot1) showcase = localHs;
+      } catch (e) {}
+    }
     if (!showcase && window.__NACHIYAR_SETTINGS && window.__NACHIYAR_SETTINGS.homeShowcase) {
       showcase = window.__NACHIYAR_SETTINGS.homeShowcase;
     }
     if (!showcase) {
-      try {
-        showcase = JSON.parse(localStorage.getItem('nachiyar_home_showcase') || '{}');
-      } catch (e) {
-        showcase = {};
-      }
+      showcase = {};
     }
 
     const slot1Cfg = showcase?.slot1 || null;
@@ -729,18 +731,33 @@ async function initStorefrontApp() {
     if (cachedSettings) updateStorefrontBusinessDetails(cachedSettings);
 
     const cachedProducts = JSON.parse(localStorage.getItem('nachiyar_store_products') || 'null');
+    const cachedShowcase = JSON.parse(localStorage.getItem('nachiyar_home_showcase') || 'null');
     if (cachedProducts !== null && Array.isArray(cachedProducts)) {
-      applyLiveProductsToDOM(cachedProducts);
+      applyLiveProductsToDOM(cachedProducts, cachedShowcase);
     }
   } catch (e) {}
 
-  // Function to reload live products with cache-busting
+  // Function to reload live products & showcase with cache-busting
   async function reloadLiveProducts() {
     try {
-      const pRes = await fetch('/api/products?_t=' + Date.now(), { cache: 'no-store' }).then(r => r.json());
+      const [pRes, sRes] = await Promise.all([
+        fetch('/api/products?_t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/settings/public?_t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).catch(() => ({ success: false }))
+      ]);
+
+      let freshShowcase = null;
+      if (sRes && sRes.success && sRes.data) {
+        if (sRes.data.homeShowcase) {
+          freshShowcase = sRes.data.homeShowcase;
+          try { localStorage.setItem('nachiyar_home_showcase', JSON.stringify(freshShowcase)); } catch (e) {}
+          window.__NACHIYAR_SETTINGS = { ...(window.__NACHIYAR_SETTINGS || {}), homeShowcase: freshShowcase };
+        }
+        updateStorefrontBusinessDetails(sRes.data);
+      }
+
       if (pRes && pRes.success && Array.isArray(pRes.data)) {
         try { localStorage.setItem('nachiyar_store_products', JSON.stringify(pRes.data)); } catch (e) {}
-        applyLiveProductsToDOM(pRes.data);
+        applyLiveProductsToDOM(pRes.data, freshShowcase);
       }
     } catch (err) {
       console.warn('Failed to refresh products:', err);
@@ -751,13 +768,20 @@ async function initStorefrontApp() {
 
   // Cross-tab real-time listener: when admin updates any product or settings, instantly update storefront without page refresh!
   window.addEventListener('storage', (e) => {
-    if (e.key === 'nachiyar_products_updated' || e.key === 'nachiyar_store_products') {
+    if (e.key === 'nachiyar_products_updated' || e.key === 'nachiyar_store_products' || e.key === 'nachiyar_home_showcase') {
       reloadLiveProducts();
     }
     if (e.key === 'nachiyar_store_settings') {
       try {
         const s = JSON.parse(e.newValue);
-        if (s) updateStorefrontBusinessDetails(s);
+        if (s) {
+          updateStorefrontBusinessDetails(s);
+          if (s.homeShowcase) {
+            try { localStorage.setItem('nachiyar_home_showcase', JSON.stringify(s.homeShowcase)); } catch (e) {}
+            window.__NACHIYAR_SETTINGS = { ...(window.__NACHIYAR_SETTINGS || {}), homeShowcase: s.homeShowcase };
+          }
+          reloadLiveProducts();
+        }
       } catch (err) {}
     }
   });
@@ -767,6 +791,10 @@ async function initStorefrontApp() {
     const storeChannel = new BroadcastChannel('nachiyar_store_channel');
     storeChannel.onmessage = (event) => {
       if (event.data && (event.data.type === 'PRODUCTS_UPDATED' || event.data.type === 'SETTINGS_UPDATED' || event.data.type === 'settings_updated')) {
+        if (event.data.homeShowcase) {
+          try { localStorage.setItem('nachiyar_home_showcase', JSON.stringify(event.data.homeShowcase)); } catch (e) {}
+          window.__NACHIYAR_SETTINGS = { ...(window.__NACHIYAR_SETTINGS || {}), homeShowcase: event.data.homeShowcase };
+        }
         reloadLiveProducts();
         if (event.data.settings) updateStorefrontBusinessDetails(event.data.settings);
       }

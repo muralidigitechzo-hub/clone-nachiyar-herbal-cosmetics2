@@ -2230,6 +2230,20 @@
         currentSettings.homeShowcase = { ...DEFAULT_HOME_SHOWCASE, ...(currentSettings.homeShowcase || {}) };
         write(KEYS.SETTINGS, currentSettings);
       }
+
+      // Auto-repair if slot1 and slot2 ended up with the same product ID
+      if (currentSettings && currentSettings.homeShowcase) {
+        const hs = currentSettings.homeShowcase;
+        if (hs.slot1 && hs.slot2 && hs.slot1.productId === hs.slot2.productId) {
+          if (hs.slot1.productId === 'prod_oil_01') {
+            hs.slot2 = { ...DEFAULT_HOME_SHOWCASE.slot2 };
+          } else {
+            hs.slot1 = { ...DEFAULT_HOME_SHOWCASE.slot1 };
+          }
+          write(KEYS.SETTINGS, currentSettings);
+          write(KEYS.HOME_SHOWCASE, hs);
+        }
+      }
     } catch (e) {}
 
     if (!localStorage.getItem(KEYS.HOME_SHOWCASE)) {
@@ -2970,15 +2984,27 @@
           current[body.slot].removed = true;
         }
       } else if (body.slot && body.productId) {
-        current[body.slot] = {
-          ...(current[body.slot] || {}),
+        const targetSlot = body.slot;
+        const otherSlot = targetSlot === 'slot1' ? 'slot2' : (targetSlot === 'slot2' ? 'slot1' : null);
+
+        // If other slot has the same product, swap them so one product is never duplicated
+        if (otherSlot && current[otherSlot] && current[otherSlot].productId === body.productId) {
+          const oldTarget = current[targetSlot] || (targetSlot === 'slot1' ? DEFAULT_HOME_SHOWCASE.slot1 : DEFAULT_HOME_SHOWCASE.slot2);
+          current[otherSlot] = {
+            ...oldTarget,
+            removed: false
+          };
+        }
+
+        current[targetSlot] = {
+          ...(current[targetSlot] || {}),
           productId: body.productId,
-          title: body.title || current[body.slot]?.title || '',
-          subtitle: body.subtitle || current[body.slot]?.subtitle || '',
-          price: body.price !== undefined ? Number(body.price) : current[body.slot]?.price,
-          mrp: body.mrp !== undefined ? Number(body.mrp) : current[body.slot]?.mrp,
-          customImage: body.customImage || current[body.slot]?.customImage,
-          tag: body.tag || current[body.slot]?.tag || '',
+          title: body.title || current[targetSlot]?.title || '',
+          subtitle: body.subtitle || current[targetSlot]?.subtitle || '',
+          price: body.price !== undefined ? Number(body.price) : current[targetSlot]?.price,
+          mrp: body.mrp !== undefined ? Number(body.mrp) : current[targetSlot]?.mrp,
+          customImage: body.customImage || current[targetSlot]?.customImage,
+          tag: body.tag || current[targetSlot]?.tag || '',
           removed: false
         };
       }

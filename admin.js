@@ -1049,11 +1049,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     filtered.forEach(p => {
-      // Check showcase slot
+      // Check showcase slot (Mutually exclusive: a product can only be ONE active showcase slot)
       const showcase = (storeSettings && storeSettings.homeShowcase) || {};
-      const isSlot1 = (showcase.slot1 && showcase.slot1.productId === p.id) || (!showcase.slot1 && p.id === 'prod_oil_01');
-      const isSlot2 = (showcase.slot2 && showcase.slot2.productId === p.id) || (!showcase.slot2 && p.id === 'prod_shampoo_02');
-      const isCombo = (showcase.combo && showcase.combo.productId === p.id) || (!showcase.combo && p.id === 'prod_duo_03');
+      const slot1ProdId = showcase.slot1 ? showcase.slot1.productId : 'prod_oil_01';
+      const slot2ProdId = showcase.slot2 ? showcase.slot2.productId : 'prod_shampoo_02';
+      const comboProdId = showcase.combo ? showcase.combo.productId : 'prod_duo_03';
+
+      const isSlot1 = (slot1ProdId === p.id) && !(showcase.slot1 && showcase.slot1.removed);
+      // isSlot2 can ONLY be true if isSlot1 is NOT true for this product
+      const isSlot2 = (slot2ProdId === p.id) && !(showcase.slot2 && showcase.slot2.removed) && !isSlot1;
+      const isCombo = (comboProdId === p.id) && !(showcase.combo && showcase.combo.removed);
 
       let showcaseBtnLabel = '+ Set as Home Feature ▾';
       let showcaseBtnClass = 'inactive';
@@ -1758,10 +1763,15 @@ document.addEventListener('DOMContentLoaded', () => {
           showToast(`★ Home Flagship ${slot === 'slot1' ? '1 (Left)' : '2 (Right)'} updated live!`);
           const modal = document.getElementById('flagshipModalOverlay');
           if (modal) { modal.classList.remove('is-active'); modal.style.display = 'none'; }
+          if (json.homeShowcase) {
+            try {
+              localStorage.setItem('nachiyar_home_showcase', JSON.stringify(json.homeShowcase));
+            } catch (e) {}
+          }
           try {
             localStorage.setItem('nachiyar_products_updated', Date.now().toString());
             const ch = new BroadcastChannel('nachiyar_store_channel');
-            ch.postMessage({ type: 'SETTINGS_UPDATED', timestamp: Date.now() });
+            ch.postMessage({ type: 'SETTINGS_UPDATED', homeShowcase: json.homeShowcase, timestamp: Date.now() });
           } catch (e) {}
           await loadAllData();
         } else {
@@ -2073,10 +2083,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const json = await res.json();
         if (json.success) {
           showToast('Flagship 1 & 2 swapped successfully!');
+          if (json.homeShowcase) {
+            try {
+              localStorage.setItem('nachiyar_home_showcase', JSON.stringify(json.homeShowcase));
+            } catch (e) {}
+          }
           try {
             localStorage.setItem('nachiyar_products_updated', Date.now().toString());
             const ch = new BroadcastChannel('nachiyar_store_channel');
-            ch.postMessage({ type: 'PRODUCTS_UPDATED', timestamp: Date.now() });
+            ch.postMessage({ type: 'SETTINGS_UPDATED', homeShowcase: json.homeShowcase, timestamp: Date.now() });
           } catch (e) {}
           await loadAllData();
         } else {
