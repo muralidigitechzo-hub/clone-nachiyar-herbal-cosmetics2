@@ -2928,7 +2928,7 @@
           rating: Number(body.rating || 5),
           title: body.title || 'Exceptional Quality',
           comment: body.comment || '',
-          status: 'approved', // Automatically approved in LocalStorage mode
+          status: 'pending', // Pending admin moderation approval
           createdAt: new Date().toISOString(),
           created_at: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
