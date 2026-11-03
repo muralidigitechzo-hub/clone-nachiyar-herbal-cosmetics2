@@ -1,15 +1,9 @@
 {
-  "outputDirectory": ".",
   "cleanUrls": true,
-  "trailingSlash": false,
-  "rewrites": [
-    { "source": "/nimda", "destination": "/nimda.html" },
-    { "source": "/nimda/", "destination": "/nimda.html" },
-    { "source": "/nimda/:path*", "destination": "/nimda.html" },
-    { "source": "/nimda-login", "destination": "/nimda-login.html" },
-    { "source": "/nimda-login/", "destination": "/nimda-login.html" },
-    { "source": "/product", "destination": "/product.html" },
-    { "source": "/product/", "destination": "/product.html" },
-    { "source": "/product/:path*", "destination": "/product.html" }
+  "routes": [
+    { "src": "^/nimda(/.*)?$", "dest": "/nimda.html" },
+    { "src": "^/nimda-login(/.*)?$", "dest": "/nimda-login.html" },
+    { "src": "^/product(/.*)?$", "dest": "/product.html" },
+    { "handle": "filesystem" }
   ]
 }
