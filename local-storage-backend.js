@@ -1614,7 +1614,38 @@
     "phone": "9876543210"
   }
 ];
+  const DEFAULT_HOME_SHOWCASE = {
+    slot1: {
+      productId: 'prod_oil_01',
+      title: 'Herbal Hair Oil',
+      subtitle: 'Lavender Glass Dropper Bottle • 100% Cold-Pressed',
+      price: 299,
+      mrp: 699,
+      customImage: 'assets/new-oil-bottle-card.jpg',
+      tag: '100% Pure Plant Active'
+    },
+    slot2: {
+      productId: 'prod_shampoo_02',
+      title: 'Hibiscus Flower Shampoo',
+      subtitle: 'Crimson Botanical Pump Bottle • Sulfate-Free pH 5.5',
+      price: 349,
+      mrp: 649,
+      customImage: 'assets/new-shampoo-bottle-card.jpg',
+      tag: 'pH 5.5 Balanced Scalp Care'
+    },
+    combo: {
+      productId: 'prod_duo_03',
+      title: 'The Royal Hair Ritual (Duo Set)',
+      subtitle: 'Complete 2-Step Routine | Oil 200ml + Shampoo 250ml',
+      price: 599,
+      mrp: 1148,
+      customImage: 'assets/duo-ritual-new.jpg',
+      tag: '★ BEST VALUE: SAVE ₹549'
+    }
+  };
+
   const SEED_SETTINGS = {
+  "homeShowcase": DEFAULT_HOME_SHOWCASE,
   "gstin": "33AAACH9876K1Z2",
   "brandName": "Nachiyar Herbals & Cosmetics",
   "couponCode": "NACHIYAR25",
@@ -2190,14 +2221,26 @@
         localStorage.setItem('nachiyar_admin_accounts', JSON.stringify(cleanedLocal));
       }
     } catch (e) {}
-    if (!localStorage.getItem(KEYS.SETTINGS)) {
-      write(KEYS.SETTINGS, SEED_SETTINGS);
-    }
-    if (!localStorage.getItem(KEYS.INV_LOGS)) {
-      write(KEYS.INV_LOGS, SEED_INV_LOGS);
-    }
-    if (!localStorage.getItem(KEYS.HOME_SHOWCASE) && SEED_SETTINGS.homeShowcase) {
-      write(KEYS.HOME_SHOWCASE, SEED_SETTINGS.homeShowcase);
+    try {
+      let currentSettings = read(KEYS.SETTINGS, null);
+      if (!currentSettings) {
+        currentSettings = { ...SEED_SETTINGS, homeShowcase: DEFAULT_HOME_SHOWCASE };
+        write(KEYS.SETTINGS, currentSettings);
+      } else if (!currentSettings.homeShowcase || !currentSettings.homeShowcase.slot1) {
+        currentSettings.homeShowcase = { ...DEFAULT_HOME_SHOWCASE, ...(currentSettings.homeShowcase || {}) };
+        write(KEYS.SETTINGS, currentSettings);
+      }
+    } catch (e) {}
+
+    if (!localStorage.getItem(KEYS.HOME_SHOWCASE)) {
+      write(KEYS.HOME_SHOWCASE, DEFAULT_HOME_SHOWCASE);
+    } else {
+      try {
+        const hs = JSON.parse(localStorage.getItem(KEYS.HOME_SHOWCASE) || '{}');
+        if (!hs || !hs.slot1) {
+          write(KEYS.HOME_SHOWCASE, { ...DEFAULT_HOME_SHOWCASE, ...(hs || {}) });
+        }
+      } catch (e) {}
     }
   }
 
@@ -2892,7 +2935,11 @@
       const settings = read(KEYS.SETTINGS, SEED_SETTINGS);
 
       if (method === 'GET') {
-        return jsonResponse({ success: true, data: settings });
+        const withHs = { ...settings };
+        if (!withHs.homeShowcase) {
+          withHs.homeShowcase = read(KEYS.HOME_SHOWCASE, DEFAULT_HOME_SHOWCASE);
+        }
+        return jsonResponse({ success: true, data: withHs });
       }
 
       if (method === 'PUT' || method === 'POST') {
@@ -2904,22 +2951,35 @@
     }
 
     if (pathname === '/api/settings/home-showcase') {
-      const settings = read(KEYS.SETTINGS, SEED_SETTINGS);
-      const current = settings.homeShowcase || SEED_SETTINGS.homeShowcase;
+      const settings = read(KEYS.SETTINGS, SEED_SETTINGS) || {};
+      let current = settings.homeShowcase || read(KEYS.HOME_SHOWCASE, null);
+      if (!current || typeof current !== 'object') {
+        current = JSON.parse(JSON.stringify(DEFAULT_HOME_SHOWCASE));
+      }
+      if (!current.slot1) current.slot1 = { ...DEFAULT_HOME_SHOWCASE.slot1 };
+      if (!current.slot2) current.slot2 = { ...DEFAULT_HOME_SHOWCASE.slot2 };
+      if (!current.combo) current.combo = { ...DEFAULT_HOME_SHOWCASE.combo };
 
       if (body.swap) {
         const slot1 = current.slot1;
         const slot2 = current.slot2;
         current.slot1 = slot2;
         current.slot2 = slot1;
+      } else if (body.slot && body.remove) {
+        if (current[body.slot]) {
+          current[body.slot].removed = true;
+        }
       } else if (body.slot && body.productId) {
         current[body.slot] = {
+          ...(current[body.slot] || {}),
           productId: body.productId,
-          title: body.title || current[body.slot]?.title,
+          title: body.title || current[body.slot]?.title || '',
+          subtitle: body.subtitle || current[body.slot]?.subtitle || '',
           price: body.price !== undefined ? Number(body.price) : current[body.slot]?.price,
           mrp: body.mrp !== undefined ? Number(body.mrp) : current[body.slot]?.mrp,
           customImage: body.customImage || current[body.slot]?.customImage,
-          tag: body.tag || current[body.slot]?.tag
+          tag: body.tag || current[body.slot]?.tag || '',
+          removed: false
         };
       }
 
@@ -2927,7 +2987,7 @@
       settings.homeShowcase = current;
       write(KEYS.SETTINGS, settings);
       write(KEYS.HOME_SHOWCASE, current);
-      broadcast('SETTINGS_UPDATED', { settings });
+      broadcast('SETTINGS_UPDATED', { settings, homeShowcase: current });
       return jsonResponse({ success: true, homeShowcase: current });
     }
 

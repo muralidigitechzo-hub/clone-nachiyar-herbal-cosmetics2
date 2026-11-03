@@ -252,20 +252,20 @@ async function initStorefrontApp() {
 
     const availableProds = productsList.filter(p => p.status !== 'inactive');
     
-    // Intelligently fallback to real active database products if configured targets don't exist
-    let slot1TargetId = (isSlot1Removed || availableProds.length === 0) ? null : (slot1Cfg?.productId || availableProds[0]?.id || 'prod_oil_01');
-    let slot2TargetId = (isSlot2Removed || availableProds.length < 2) ? null : (slot2Cfg?.productId || availableProds[1]?.id);
-    let comboTargetId = (isComboRemoved || availableProds.length === 0) ? null : (comboCfg?.productId || null);
+    // Flagship assignments: strictly explicit configuration or standard flagship products
+    let slot1TargetId = isSlot1Removed ? null : (slot1Cfg?.productId || 'prod_oil_01');
+    let slot2TargetId = isSlot2Removed ? null : (slot2Cfg?.productId || 'prod_shampoo_02');
+    let comboTargetId = isComboRemoved ? null : (comboCfg?.productId || 'prod_duo_03');
 
-    if (!isSlot1Removed && availableProds.length > 0 && (!slot1TargetId || !availableProds.some(p => p.id === slot1TargetId || p.slug === slot1TargetId))) {
-      slot1TargetId = availableProds[0]?.id;
+    // Fallback strictly to original flagships if configured product is missing
+    if (slot1TargetId && !availableProds.some(p => p.id === slot1TargetId || p.slug === slot1TargetId)) {
+      slot1TargetId = availableProds.some(p => p.id === 'prod_oil_01' || p.slug === 'herbal-hair-oil') ? 'prod_oil_01' : null;
     }
-    if (!isSlot2Removed && availableProds.length > 1 && (!slot2TargetId || !availableProds.some(p => p.id === slot2TargetId || p.slug === slot2TargetId))) {
-      slot2TargetId = availableProds[1]?.id;
+    if (slot2TargetId && !availableProds.some(p => p.id === slot2TargetId || p.slug === slot2TargetId)) {
+      slot2TargetId = availableProds.some(p => p.id === 'prod_shampoo_02' || p.slug === 'hibiscus-flower-shampoo') ? 'prod_shampoo_02' : null;
     }
-    if (!isComboRemoved && availableProds.length > 0 && (!comboTargetId || !availableProds.some(p => p.id === comboTargetId || p.slug === comboTargetId))) {
-      const duoMatch = availableProds.find(p => p.category === 'Ritual Sets' || p.category === 'Ritual Combos' || (p.name && p.name.includes('Combo')));
-      comboTargetId = duoMatch ? duoMatch.id : (availableProds.length > 2 ? availableProds[2].id : availableProds[0]?.id);
+    if (comboTargetId && !availableProds.some(p => p.id === comboTargetId || p.slug === comboTargetId)) {
+      comboTargetId = availableProds.some(p => p.id === 'prod_duo_03' || p.slug === 'royal-hair-ritual-duo') ? 'prod_duo_03' : null;
     }
 
     // 1. Enforce live storefront visibility for Flagship collection cards & combo banner
@@ -694,61 +694,9 @@ async function initStorefrontApp() {
       }).join('');
     });
 
-    // 5.8. Dynamically append extra products to #dynamicProductsGrid beyond flagship 1 & 2
+    // Remove any dynamic extra cards from home page (Home page strictly shows only assigned Flagship 1 & 2 cards)
     if (dynamicGrid) {
       dynamicGrid.querySelectorAll('.product-card--dynamic-extra').forEach(el => el.remove());
-      const extraProds = availableProds.filter(p => p.id !== slot1TargetId && p.id !== slot2TargetId && p.id !== comboTargetId);
-      extraProds.forEach(p => {
-        const pPrice = Number(p.price) || 0;
-        const pMrp = Number(p.mrp) > pPrice ? Number(p.mrp) : Math.round(pPrice * 1.2);
-        const pImg = (p.images && p.images[0]) || 'assets/new-oil-bottle-card.jpg';
-        const pSlug = p.slug || p.id;
-        const pTagline = p.tagline || '100% Pure Botanical';
-        const pBadge = p.metricBadge || '100% PURE';
-        const pDesc = p.shortDescription || (p.description ? p.description.slice(0, 140) + '...' : '');
-
-        const card = document.createElement('article');
-        card.className = 'product-card product-card--dynamic-extra';
-        card.style.setProperty('--card-bg', p.themeColor || '#6B4E9B');
-        card.style.setProperty('--card-color', '#FAF8FD');
-        card.style.backgroundColor = p.themeColor || '#6B4E9B';
-        card.style.color = '#FAF8FD';
-
-        card.innerHTML = `
-          <div class="card-inner">
-            <div class="card-top-bar">
-              <span class="pill-tag">${pTagline}</span>
-              <div class="circle-badge" title="${pBadge}">
-                <span class="badge-number">${pBadge}</span>
-              </div>
-            </div>
-            <div class="card-image-wrap">
-              <img src="${pImg}" alt="${p.name}" class="card-product-img" loading="lazy">
-              <a href="/product/?slug=${encodeURIComponent(pSlug)}" class="quick-view-badge">View Formulation ↗</a>
-            </div>
-            <div class="card-details">
-              <div class="card-meta-row">
-                <span class="product-category">${p.category || 'Ayurvedic Care'}</span>
-                <div class="rating-stars">★★★★★ <span class="rating-score">4.9</span></div>
-              </div>
-              <h3 class="product-card-title">${p.name}</h3>
-              <p class="product-card-subtitle">${p.subtitle || ''}</p>
-              ${pDesc ? `<p class="product-card-desc">${pDesc}</p>` : ''}
-              <div class="card-action-bar">
-                <div class="card-pricing">
-                  <span class="price-current">₹${pPrice}</span>
-                  <span class="price-mrp">₹${pMrp}</span>
-                </div>
-                <button class="btn-quick-add" data-id="${p.id}" data-name="${p.name}" data-price="${pPrice}" data-img="${pImg}">
-                  <span>Add To Bag</span>
-                  <span>+</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        `;
-        dynamicGrid.appendChild(card);
-      });
     }
 
     // 6. Refresh any items already in the user's cart with updated prices

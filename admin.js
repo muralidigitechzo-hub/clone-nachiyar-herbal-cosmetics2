@@ -1758,7 +1758,12 @@ document.addEventListener('DOMContentLoaded', () => {
           showToast(`★ Home Flagship ${slot === 'slot1' ? '1 (Left)' : '2 (Right)'} updated live!`);
           const modal = document.getElementById('flagshipModalOverlay');
           if (modal) { modal.classList.remove('is-active'); modal.style.display = 'none'; }
-          loadAllData();
+          try {
+            localStorage.setItem('nachiyar_products_updated', Date.now().toString());
+            const ch = new BroadcastChannel('nachiyar_store_channel');
+            ch.postMessage({ type: 'SETTINGS_UPDATED', timestamp: Date.now() });
+          } catch (e) {}
+          await loadAllData();
         } else {
           showToast('Error: ' + (json.message || 'Failed to update'));
         }
@@ -1832,7 +1837,12 @@ document.addEventListener('DOMContentLoaded', () => {
           showToast('🎁 Home Combo Banner published successfully!');
           const modal = document.getElementById('comboModalOverlay');
           if (modal) { modal.classList.remove('is-active'); modal.style.display = 'none'; }
-          loadAllData();
+          try {
+            localStorage.setItem('nachiyar_products_updated', Date.now().toString());
+            const ch = new BroadcastChannel('nachiyar_store_channel');
+            ch.postMessage({ type: 'SETTINGS_UPDATED', timestamp: Date.now() });
+          } catch (e) {}
+          await loadAllData();
         } else {
           showToast('Error: ' + (json.message || 'Failed to publish'));
         }

@@ -1095,22 +1095,39 @@ const template = `/**
     }
 
     if (pathname === '/api/settings/home-showcase') {
-      const settings = read(KEYS.SETTINGS, SEED_SETTINGS);
-      const current = settings.homeShowcase || SEED_SETTINGS.homeShowcase;
+      const settings = read(KEYS.SETTINGS, SEED_SETTINGS) || {};
+      let current = settings.homeShowcase || read(KEYS.HOME_SHOWCASE, null);
+      if (!current || typeof current !== 'object') {
+        current = {
+          slot1: { productId: 'prod_oil_01', title: 'Herbal Hair Oil', price: 299, mrp: 699, customImage: 'assets/new-oil-bottle-card.jpg' },
+          slot2: { productId: 'prod_shampoo_02', title: 'Hibiscus Flower Shampoo', price: 349, mrp: 649, customImage: 'assets/new-shampoo-bottle-card.jpg' },
+          combo: { productId: 'prod_duo_03', title: 'The Royal Hair Ritual (Duo Set)', price: 599, mrp: 1148, customImage: 'assets/duo-ritual-new.jpg' }
+        };
+      }
+      if (!current.slot1) current.slot1 = { productId: 'prod_oil_01', title: 'Herbal Hair Oil', price: 299, mrp: 699, customImage: 'assets/new-oil-bottle-card.jpg' };
+      if (!current.slot2) current.slot2 = { productId: 'prod_shampoo_02', title: 'Hibiscus Flower Shampoo', price: 349, mrp: 649, customImage: 'assets/new-shampoo-bottle-card.jpg' };
+      if (!current.combo) current.combo = { productId: 'prod_duo_03', title: 'The Royal Hair Ritual (Duo Set)', price: 599, mrp: 1148, customImage: 'assets/duo-ritual-new.jpg' };
 
       if (body.swap) {
         const slot1 = current.slot1;
         const slot2 = current.slot2;
         current.slot1 = slot2;
         current.slot2 = slot1;
+      } else if (body.slot && body.remove) {
+        if (current[body.slot]) {
+          current[body.slot].removed = true;
+        }
       } else if (body.slot && body.productId) {
         current[body.slot] = {
+          ...(current[body.slot] || {}),
           productId: body.productId,
-          title: body.title || current[body.slot]?.title,
+          title: body.title || current[body.slot]?.title || '',
+          subtitle: body.subtitle || current[body.slot]?.subtitle || '',
           price: body.price !== undefined ? Number(body.price) : current[body.slot]?.price,
           mrp: body.mrp !== undefined ? Number(body.mrp) : current[body.slot]?.mrp,
           customImage: body.customImage || current[body.slot]?.customImage,
-          tag: body.tag || current[body.slot]?.tag
+          tag: body.tag || current[body.slot]?.tag || '',
+          removed: false
         };
       }
 
@@ -1118,7 +1135,7 @@ const template = `/**
       settings.homeShowcase = current;
       write(KEYS.SETTINGS, settings);
       write(KEYS.HOME_SHOWCASE, current);
-      broadcast('SETTINGS_UPDATED', { settings });
+      broadcast('SETTINGS_UPDATED', { settings, homeShowcase: current });
       return jsonResponse({ success: true, homeShowcase: current });
     }
 
