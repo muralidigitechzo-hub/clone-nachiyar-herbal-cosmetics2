@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const storedUserJson = localStorage.getItem('nachiyar_admin_user');
 
   if (!adminToken) {
-    window.location.replace('/nimda-login/');
+    window.location.replace('/nimda-login');
     return;
   }
 
@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.removeItem('nachiyar_admin_user');
       localStorage.removeItem('nachiyar_admin_active_tab');
       document.cookie = 'nachiyar_admin_token=; path=/; max-age=0; SameSite=Lax';
-      window.location.replace('/nimda-login/');
+      window.location.replace('/nimda-login');
       throw new Error('Unauthorized');
     }
     return res;
@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.removeItem('nachiyar_admin_token');
       localStorage.removeItem('nachiyar_admin_user');
       document.cookie = 'nachiyar_admin_token=; path=/; max-age=0; SameSite=Lax';
-      window.location.replace('/nimda-login/');
+      window.location.replace('/nimda-login');
     });
   }
 
@@ -5176,14 +5176,18 @@ document.addEventListener('DOMContentLoaded', () => {
   if (adminSidebarClose) adminSidebarClose.addEventListener('click', closeSidebar);
   if (adminSidebarBackdrop) adminSidebarBackdrop.addEventListener('click', closeSidebar);
 
-  // Extract tab from clean URL path (e.g. /nimda/dashboard/ or /nimda/products/) or legacy hash
+  // Extract tab from clean URL path (e.g. /nimda/products or /admin/products) or query param or hash
   function getTabFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryTab = urlParams.get('tab');
+    if (queryTab) return queryTab.toLowerCase();
+
     if (window.location.hash) {
       const hashTab = window.location.hash.replace('#', '').trim().toLowerCase();
       if (hashTab) return hashTab;
     }
     const pathParts = window.location.pathname.split('/').filter(Boolean);
-    if (pathParts.length >= 2 && pathParts[0].toLowerCase() === 'nimda') {
+    if (pathParts.length >= 2 && (pathParts[0].toLowerCase() === 'nimda' || pathParts[0].toLowerCase() === 'admin')) {
       return pathParts[1].toLowerCase();
     }
     return null;
@@ -5209,8 +5213,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Save active tab so browser refresh stays on the exact same page
     localStorage.setItem('nachiyar_admin_active_tab', tabId);
 
-    // Clean URL: /nimda/dashboard/, /nimda/products/, etc. (No '#' anywhere)
-    const targetUrl = `/nimda/${tabId}/`;
+    // Clean URL: /nimda/dashboard, /nimda/products, etc. (Without trailing slash to prevent 308 redirect loops on Vercel)
+    const basePath = window.location.pathname.startsWith('/admin') ? '/admin' : '/nimda';
+    const targetUrl = tabId === 'dashboard' ? basePath : `${basePath}/${tabId}`;
     if (updateHistory) {
       if (window.location.hash) {
         window.history.replaceState({ tab: tabId }, '', targetUrl);

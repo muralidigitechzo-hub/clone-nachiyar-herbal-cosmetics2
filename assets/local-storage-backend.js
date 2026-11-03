@@ -3243,14 +3243,15 @@
 
     // 13. MARKETPLACES
     if (pathname.startsWith('/api/marketplaces')) {
+      const channelsObj = {
+        flipkart: { id: 1, name: 'Flipkart', feePercent: 12, themeColor: '#2874F0', active: true, sellerId: 'FK-NACHIYAR-101', activeListings: 3, orders: [] },
+        amazon: { id: 2, name: 'Amazon', feePercent: 15, themeColor: '#FF9900', active: true, sellerId: 'AZ-NACHIYAR-882', activeListings: 3, orders: [] },
+        meesho: { id: 3, name: 'Meesho', feePercent: 5, themeColor: '#F43397', active: true, sellerId: 'MEE-NACHIYAR-99', activeListings: 3, orders: [] }
+      };
       return jsonResponse({
         success: true,
         data: {
-          channels: [
-            { id: 1, name: 'Flipkart', feePercent: 12, themeColor: '#2874F0', active: true },
-            { id: 2, name: 'Amazon', feePercent: 15, themeColor: '#FF9900', active: true },
-            { id: 3, name: 'Meesho', feePercent: 5, themeColor: '#F43397', active: true }
-          ],
+          channels: channelsObj,
           orders: [],
           skus: []
         }

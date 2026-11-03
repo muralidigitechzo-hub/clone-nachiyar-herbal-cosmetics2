@@ -1,9 +1,15 @@
 {
   "cleanUrls": true,
-  "routes": [
-    { "src": "^/nimda(/.*)?$", "dest": "/nimda.html" },
-    { "src": "^/nimda-login(/.*)?$", "dest": "/nimda-login.html" },
-    { "src": "^/product(/.*)?$", "dest": "/product.html" },
-    { "handle": "filesystem" }
+  "rewrites": [
+    { "source": "/admin-login/:path*", "destination": "/nimda-login.html" },
+    { "source": "/admin-login", "destination": "/nimda-login.html" },
+    { "source": "/admin/:path*", "destination": "/nimda.html" },
+    { "source": "/admin", "destination": "/nimda.html" },
+    { "source": "/nimda-login/:path*", "destination": "/nimda-login.html" },
+    { "source": "/nimda-login", "destination": "/nimda-login.html" },
+    { "source": "/nimda/:path*", "destination": "/nimda.html" },
+    { "source": "/nimda", "destination": "/nimda.html" },
+    { "source": "/product/:path*", "destination": "/product.html" },
+    { "source": "/product", "destination": "/product.html" }
   ]
 }
